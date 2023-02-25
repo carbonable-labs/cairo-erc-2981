@@ -10,7 +10,7 @@ from starkware.cairo.common.uint256 import Uint256, uint256_check, uint256_mul_d
 
 from openzeppelin.introspection.erc165.library import ERC165
 
-from src.utils.constants.library import IERC2981_ID
+from erc2981.utils.constants.library import IERC2981_ID
 
 @storage_var
 func ERC2981_receiver_() -> (receiver: felt) {

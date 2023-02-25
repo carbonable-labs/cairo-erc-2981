@@ -8,7 +8,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 
 from openzeppelin.token.erc721.IERC721 import IERC721
-from src.erc2981.IERC2981 import IERC2981
+from erc2981.IERC2981 import IERC2981
 
 const NAME = 'NAME';
 const SYMBOL = 'SYMBOL';

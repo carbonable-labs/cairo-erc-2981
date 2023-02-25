@@ -2,7 +2,7 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 
-from src.erc2981.library import ERC2981
+from erc2981.library import ERC2981
 
 const RECEIVER = 0x123;
 const FEE_NUMERATOR = 1;
