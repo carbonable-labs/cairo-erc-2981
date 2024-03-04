@@ -13,12 +13,12 @@ mod ERC2981 {
 
     #[storage]
     struct Storage {
-        _receiver: ContractAddress,
-        _token_receiver: LegacyMap<u256, ContractAddress>,
-        _fee_numerator: u256,
-        _token_fee_numerator: LegacyMap<u256, u256>,
-        _fee_denominator: u256,
-        _token_fee_denominator: LegacyMap<u256, u256>,
+        ERC2981_receiver: ContractAddress,
+        ERC2981_token_receiver: LegacyMap<u256, ContractAddress>,
+        ERC2981_fee_numerator: u256,
+        ERC2981_token_fee_numerator: LegacyMap<u256, u256>,
+        ERC2981_fee_denominator: u256,
+        ERC2981_token_fee_denominator: LegacyMap<u256, u256>,
     }
 
     #[external(v0)]
@@ -31,7 +31,11 @@ mod ERC2981 {
         /// * `fee_numerator` - The royalty rate numerator.
         /// * `fee_denominator` - The royalty rate denominator.
         fn default_royalty(self: @ContractState) -> (ContractAddress, u256, u256) {
-            (self._receiver.read(), self._fee_numerator.read(), self._fee_denominator.read())
+            (
+                self.ERC2981_receiver.read(),
+                self.ERC2981_fee_numerator.read(),
+                self.ERC2981_fee_denominator.read()
+            )
         }
 
         /// Return the token royalty.
@@ -47,9 +51,9 @@ mod ERC2981 {
         /// * `fee_denominator` - The royalty rate denominator.
         fn token_royalty(self: @ContractState, token_id: u256) -> (ContractAddress, u256, u256) {
             (
-                self._token_receiver.read(token_id),
-                self._token_fee_numerator.read(token_id),
-                self._token_fee_denominator.read(token_id)
+                self.ERC2981_token_receiver.read(token_id),
+                self.ERC2981_token_fee_numerator.read(token_id),
+                self.ERC2981_token_fee_denominator.read(token_id)
             )
         }
 
@@ -70,7 +74,7 @@ mod ERC2981 {
         fn royalty_info(
             self: @ContractState, token_id: u256, sale_price: u256
         ) -> (ContractAddress, u256) {
-            let receiver = self._token_receiver.read(token_id);
+            let receiver = self.ERC2981_token_receiver.read(token_id);
             if !receiver.is_zero() {
                 return self._token_royalty_info(token_id, sale_price);
             }
@@ -104,9 +108,9 @@ mod ERC2981 {
             assert(fee_numerator <= fee_denominator, 'Invalid fee rate');
 
             // [Effect] Store values
-            self._receiver.write(receiver);
-            self._fee_numerator.write(fee_numerator);
-            self._fee_denominator.write(fee_denominator);
+            self.ERC2981_receiver.write(receiver);
+            self.ERC2981_fee_numerator.write(fee_numerator);
+            self.ERC2981_fee_denominator.write(fee_denominator);
         }
 
         /// Set the token royalty rate.
@@ -138,9 +142,9 @@ mod ERC2981 {
             assert(fee_numerator <= fee_denominator, 'Invalid fee rate');
 
             // [Effect] Store values
-            self._token_receiver.write(token_id, receiver);
-            self._token_fee_numerator.write(token_id, fee_numerator);
-            self._token_fee_denominator.write(token_id, fee_denominator);
+            self.ERC2981_token_receiver.write(token_id, receiver);
+            self.ERC2981_token_fee_numerator.write(token_id, fee_numerator);
+            self.ERC2981_token_fee_denominator.write(token_id, fee_denominator);
         }
     }
 

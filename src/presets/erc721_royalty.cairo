@@ -12,7 +12,7 @@ mod ERC721Royalty {
     use openzeppelin::token::erc721::erc721::ERC721;
 
     // Local deps
-    use cairo_erc_2981::components::erc2981::interface::{IERC2981, IERC2981Legacy};
+    use cairo_erc_2981::components::erc2981::interface::{IERC2981, IERC2981Camel};
     use cairo_erc_2981::components::erc2981::module::ERC2981;
 
     #[storage]
@@ -222,7 +222,7 @@ mod ERC721Royalty {
     }
 
     #[external(v0)]
-    impl ERC2981LegacyImpl of IERC2981Legacy<ContractState> {
+    impl ERC2981CamelImpl of IERC2981Camel<ContractState> {
         fn defaultRoyalty(self: @ContractState) -> (ContractAddress, u256, u256) {
             self.default_royalty()
         }
