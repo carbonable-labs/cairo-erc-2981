@@ -25,7 +25,7 @@ trait IERC2981<TContractState> {
 }
 
 #[starknet::interface]
-trait IERC2981Legacy<TContractState> {
+trait IERC2981Camel<TContractState> {
     fn defaultRoyalty(self: @TContractState) -> (ContractAddress, u256, u256);
     fn tokenRoyalty(self: @TContractState, tokenId: u256) -> (ContractAddress, u256, u256);
     fn royaltyInfo(
