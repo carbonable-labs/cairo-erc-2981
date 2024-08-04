@@ -231,196 +231,180 @@ mod ERC2981Component {
         }
     }
 }
-// #[cfg(test)]
-// mod Test {
-//     // Local deps
-//     use super::ERC2981;
 
-//     // Constants
+#[cfg(test)]
+mod Test {
+    // starknet deps
+    use cairo_erc_2981::interfaces::erc2981::IERC2981;
+    use cairo_erc_2981::components::erc2981::ERC2981Component::InternalTrait;
+    use starknet::{contract_address_const};
 
-//     const FEE_NUMERATOR: u256 = 1;
-//     const FEE_DENOMINATOR: u256 = 100;
-//     const NEW_FEE_NUMERATOR: u256 = 2;
-//     const NEW_FEE_DENOMINATOR: u256 = 101;
-//     const TOKEN_ID: u256 = 1;
-//     const SALE_PRICE: u256 = 1000000;
+    // Local deps
+    use super::ERC2981Component;
+    use cairo_erc_2981::mocks::erc2981::MockERC2981;
 
-//     fn STATE() -> ComponentState {
-//         ERC2981::component_state_for_testing()
-//     }
+    // Constants
+    const FEE_NUMERATOR: u256 = 1;
+    const FEE_DENOMINATOR: u256 = 100;
+    const NEW_FEE_NUMERATOR: u256 = 2;
+    const NEW_FEE_DENOMINATOR: u256 = 101;
+    const TOKEN_ID: u256 = 1;
+    const SALE_PRICE: u256 = 1000000;
 
-//     fn ZERO() -> starknet::ContractAddress {
-//         starknet::contract_address_const::<0>()
-//     }
+    type ERC2981ComponentState = ERC2981Component::ComponentState<MockERC2981::ContractState>;
 
-//     fn RECEIVER() -> starknet::ContractAddress {
-//         starknet::contract_address_const::<'RECEIVER'>()
-//     }
 
-//     fn NEW_RECEIVER() -> starknet::ContractAddress {
-//         starknet::contract_address_const::<'NEW_RECEIVER'>()
-//     }
+    fn STATE() -> ERC2981ComponentState {
+        ERC2981Component::component_state_for_testing()
+    }
 
-//     #[test]
-//     #[available_gas(250_000)]
-//     fn test_initialization() {
-//         // [Setup]
-//         let mut state = STATE();
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR,
-//         FEE_DENOMINATOR);
-//         // [Assert] Default royalty
-//         let (receiver, fee_numerator, fee_denominator) = ERC2981::ERC2981Impl::default_royalty(
-//             @state
-//         );
-//         assert(receiver == RECEIVER(), 'Invalid receiver');
-//         assert(fee_numerator == FEE_NUMERATOR, 'Invalid fee numerator');
-//         assert(fee_denominator == FEE_DENOMINATOR, 'Invalid fee denominator');
-//     }
+    fn ZERO() -> starknet::ContractAddress {
+        contract_address_const::<0>()
+    }
 
-//     #[test]
-//     #[available_gas(105_000)]
-//     #[should_panic(expected: ('Invalid receiver',))]
-//     fn test_initialization_revert_invalid_receiver() {
-//         // [Setup]
-//         let mut state = STATE();
-//         // [Revert] Initialization
-//         ERC2981::InternalImpl::initializer(ref state, ZERO(), FEE_NUMERATOR, FEE_DENOMINATOR);
-//     }
+    fn RECEIVER() -> starknet::ContractAddress {
+        contract_address_const::<'RECEIVER'>()
+    }
 
-//     #[test]
-//     #[available_gas(105_000)]
-//     #[should_panic(expected: ('Invalid fee denominator',))]
-//     fn test_initialization_revert_invalid_fee_denominator() {
-//         // [Setup]
-//         let mut state = STATE();
-//         // [Revert] Initialization
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, 0);
-//     }
+    fn NEW_RECEIVER() -> starknet::ContractAddress {
+        contract_address_const::<'NEW_RECEIVER'>()
+    }
 
-//     #[test]
-//     #[available_gas(105_000)]
-//     #[should_panic(expected: ('Invalid fee rate',))]
-//     fn test_initialization_revert_invalid_fee_rate() {
-//         // [Setup]
-//         let mut state = STATE();
-//         // [Revert] Initialization
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_DENOMINATOR,
-//         FEE_NUMERATOR);
-//     }
+    #[test]
+    #[available_gas(250_000)]
+    fn test_initialization() {
+        // [Setup]
+        let mut state = STATE();
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
 
-//     #[test]
-//     #[available_gas(380_000)]
-//     fn test_default_royalty() {
-//         // [Setup]
-//         let mut state = STATE();
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR,
-//         FEE_DENOMINATOR);
-//         // [Assert] Default royalty info
-//         let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(
-//             @state, TOKEN_ID, SALE_PRICE
-//         );
-//         assert(receiver == RECEIVER(), 'Invalid receiver');
-//         assert(
-//             royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR, 'Invalid royalty
-//             amount'
-//         );
-//     }
+        // [Assert] Default royalty
+        let (receiver, fee_numerator, fee_denominator) = state.default_royalty();
+        assert(receiver == RECEIVER(), 'Invalid receiver');
+        assert(fee_numerator == FEE_NUMERATOR, 'Invalid fee numerator');
+        assert(fee_denominator == FEE_DENOMINATOR, 'Invalid fee denominator');
+    }
 
-//     #[test]
-//     #[available_gas(480_000)]
-//     fn test_set_default_royalty() {
-//         // [Setup]
-//         let mut state = STATE();
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR,
-//         FEE_DENOMINATOR);
-//         // [Effect] Set default royalty
-//         ERC2981::ERC2981Impl::set_default_royalty(
-//             ref state, NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
-//         );
-//         // [Assert] Default royalty info
-//         let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(
-//             @state, TOKEN_ID, SALE_PRICE
-//         );
-//         assert(receiver == NEW_RECEIVER(), 'Invalid receiver');
-//         assert(
-//             royalty_amount == SALE_PRICE * NEW_FEE_NUMERATOR / NEW_FEE_DENOMINATOR,
-//             'Invalid royalty amount'
-//         );
-//     }
+    #[test]
+    #[available_gas(105_000)]
+    #[should_panic(expected: ('Invalid receiver',))]
+    fn test_initialization_revert_invalid_receiver() {
+        // [Setup]
+        let mut state = STATE();
+        // [Revert] Initialization
+        state.initializer(ZERO(), FEE_NUMERATOR, FEE_DENOMINATOR);
+    }
 
-//     #[test]
-//     #[available_gas(760_000)]
-//     fn test_set_token_royalty() {
-//         // [Setup]
-//         let mut state = STATE();
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR,
-//         FEE_DENOMINATOR);
-//         // [Effect] Set token royalty
-//         ERC2981::ERC2981Impl::set_token_royalty(
-//             ref state, TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
-//         );
+    #[test]
+    #[available_gas(105_000)]
+    #[should_panic(expected: ('Invalid fee denominator',))]
+    fn test_initialization_revert_invalid_fee_denominator() {
+        // [Setup]
+        let mut state = STATE();
+        // [Revert] Initialization
+        state.initializer(RECEIVER(), FEE_NUMERATOR, 0);
+    }
 
-//         // [Assert] Token royalty info
-//         let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(
-//             @state, TOKEN_ID, SALE_PRICE
-//         );
-//         assert(receiver == NEW_RECEIVER(), 'Invalid receiver');
-//         assert(
-//             royalty_amount == SALE_PRICE * NEW_FEE_NUMERATOR / NEW_FEE_DENOMINATOR,
-//             'Invalid royalty amount'
-//         );
+    #[test]
+    #[available_gas(105_000)]
+    #[should_panic(expected: ('Invalid fee rate',))]
+    fn test_initialization_revert_invalid_fee_rate() {
+        // [Setup]
+        let mut state = STATE();
+        // [Revert] Initialization
+        state.initializer(RECEIVER(), FEE_DENOMINATOR, FEE_NUMERATOR);
+    }
 
-//         // [Assert] Default royalty info
-//         let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(@state, 0,
-//         SALE_PRICE);
-//         assert(receiver == RECEIVER(), 'Invalid receiver');
-//         assert(
-//             royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR, 'Invalid royalty
-//             amount'
-//         );
-//     }
+    #[test]
+    #[available_gas(380_000)]
+    fn test_default_royalty() {
+        // [Setup]
+        let mut state = STATE();
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        // [Assert] Default royalty info
+        let (receiver, royalty_amount) = state.royalty_info(TOKEN_ID, SALE_PRICE);
+        assert(receiver == RECEIVER(), 'Invalid receiver');
+        assert(
+            royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR,
+            'Invalid royalty
+        amount'
+        );
+    }
 
-//     #[test]
-//     #[available_gas(250_000)]
-//     #[should_panic(expected: ('Invalid receiver',))]
-//     fn test_set_token_royalty_revert_invalid_receiver() {
-//         // [Setup]
-//         let mut state = STATE();
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR,
-//         FEE_DENOMINATOR);
-//         // [Revert] Set token royalty
-//         ERC2981::ERC2981Impl::set_token_royalty(
-//             ref state, TOKEN_ID, ZERO(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
-//         );
-//     }
+    #[test]
+    #[available_gas(480_000)]
+    fn test_set_default_royalty() {
+        // [Setup]
+        let mut state = STATE();
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        // [Effect] Set default royalty
+        state.set_default_royalty(NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
+        // [Assert] Default royalty info
+        let (receiver, royalty_amount) = state.royalty_info(TOKEN_ID, SALE_PRICE);
+        assert(receiver == NEW_RECEIVER(), 'Invalid receiver');
+        assert(
+            royalty_amount == SALE_PRICE * NEW_FEE_NUMERATOR / NEW_FEE_DENOMINATOR,
+            'Invalid royalty amount'
+        );
+    }
 
-//     #[test]
-//     #[available_gas(250_000)]
-//     #[should_panic(expected: ('Invalid fee denominator',))]
-//     fn test_set_token_royalty_revert_invalid_fee_denominator() {
-//         // [Setup]
-//         let mut state = STATE();
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR,
-//         FEE_DENOMINATOR);
-//         // [Revert] Set token royalty
-//         ERC2981::ERC2981Impl::set_token_royalty(
-//             ref state, TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, 0
-//         );
-//     }
+    #[test]
+    #[available_gas(760_000)]
+    fn test_set_token_royalty() {
+        // [Setup]
+        let mut state = STATE();
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        // [Effect] Set token royalty
+        state.set_token_royalty(TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
 
-//     #[test]
-//     #[available_gas(250_000)]
-//     #[should_panic(expected: ('Invalid fee rate',))]
-//     fn test_set_token_royalty_revert_invalid_fee_rate() {
-//         // [Setup]
-//         let mut state = STATE();
-//         ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR,
-//         FEE_DENOMINATOR);
-//         // [Revert] Set token royalty
-//         ERC2981::ERC2981Impl::set_token_royalty(
-//             ref state, TOKEN_ID, NEW_RECEIVER(), NEW_FEE_DENOMINATOR, NEW_FEE_NUMERATOR
-//         );
-//     }
-// }
+        // [Assert] Token royalty info
+        let (receiver, royalty_amount) = state.royalty_info(TOKEN_ID, SALE_PRICE);
+        assert(receiver == NEW_RECEIVER(), 'Invalid receiver');
+        assert(
+            royalty_amount == SALE_PRICE * NEW_FEE_NUMERATOR / NEW_FEE_DENOMINATOR,
+            'Invalid royalty amount'
+        );
 
+        // [Assert] Default royalty info
+        let (receiver, royalty_amount) = state.royalty_info(0, SALE_PRICE);
+        assert(receiver == RECEIVER(), 'Invalid receiver');
+        assert(
+            royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR,
+            'Invalid royalty
+        amount'
+        );
+    }
+
+    #[test]
+    #[available_gas(250_000)]
+    #[should_panic(expected: ('Invalid receiver',))]
+    fn test_set_token_royalty_revert_invalid_receiver() {
+        // [Setup]
+        let mut state = STATE();
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        // [Revert] Set token royalty
+        state.set_token_royalty(TOKEN_ID, ZERO(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
+    }
+
+    #[test]
+    #[available_gas(250_000)]
+    #[should_panic(expected: ('Invalid fee denominator',))]
+    fn test_set_token_royalty_revert_invalid_fee_denominator() {
+        // [Setup]
+        let mut state = STATE();
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        // [Revert] Set token royalty
+        state.set_token_royalty(TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, 0);
+    }
+
+    #[test]
+    #[available_gas(250_000)]
+    #[should_panic(expected: ('Invalid fee rate',))]
+    fn test_set_token_royalty_revert_invalid_fee_rate() {
+        // [Setup]
+        let mut state = STATE();
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        // [Revert] Set token royalty
+        state.set_token_royalty(TOKEN_ID, NEW_RECEIVER(), NEW_FEE_DENOMINATOR, NEW_FEE_NUMERATOR);
+    }
+}
 

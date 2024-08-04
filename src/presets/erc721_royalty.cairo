@@ -29,7 +29,7 @@ mod ERC721Royalty {
     impl ERC721MixinImpl = ERC721Component::ERC721MixinImpl<ContractState>;
     impl ERC721InternalImpl = ERC721Component::InternalImpl<ContractState>;
 
-    // ERC721 Mixin
+    // ERC2981
     #[abi(embed_v0)]
     impl ERC2981Impl = ERC2981Component::ERC2981<ContractState>;
     impl ERC2981InternalImpl = ERC2981Component::InternalImpl<ContractState>;
