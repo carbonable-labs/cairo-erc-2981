@@ -1,8 +1,9 @@
 mod components {
-    mod erc2981 {
-        mod interface;
-        mod module;
-    }
+    mod erc2981;
+}
+
+mod interfaces {
+    mod erc2981;
 }
 
 mod presets {
@@ -13,3 +14,4 @@ mod presets {
 mod tests {
     mod test_erc721_royalty;
 }
+
