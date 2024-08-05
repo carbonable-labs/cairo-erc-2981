@@ -1,21 +1,22 @@
 //! Component implementing IERC2981.
-
 #[starknet::component]
 mod ERC2981Component {
     // Starknet deps
     use starknet::{ContractAddress};
 
     // OZ deps
-    use openzeppelin::introspection::{
-        src5::{
-            SRC5Component, SRC5Component::InternalTrait as SRC5InternalTrait,
-            SRC5Component::SRC5Impl
-        },
-        interface::{ISRC5Dispatcher, ISRC5DispatcherTrait}
+    use openzeppelin::{
+        introspection::{
+            src5::{
+                SRC5Component, SRC5Component::InternalTrait as SRC5InternalTrait,
+                SRC5Component::SRC5Impl
+            },
+            interface::{ISRC5Dispatcher, ISRC5DispatcherTrait}
+        }
     };
 
     // Local deps
-    use cairo_erc_2981::interfaces::erc2981::{IERC2981, IERC2981_ID};
+    use cairo_erc_2981::interfaces::erc2981::{IERC2981, IERC2981Camel, IERC2981_ID};
 
     #[storage]
     struct Storage {
@@ -31,12 +32,12 @@ mod ERC2981Component {
     #[derive(Drop, starknet::Event)]
     enum Event {}
 
-    #[embeddable_as(ERC2981)]
-    impl ERC2981Impl<
+    #[embeddable_as(ERC2981Impl)]
+    impl ERC2981<
         TContractState,
         +HasComponent<TContractState>,
         +SRC5Component::HasComponent<TContractState>,
-        +Drop<TContractState>
+        +Drop<TContractState>,
     > of IERC2981<ComponentState<TContractState>> {
         /// Return the default royalty.
         ///
@@ -125,6 +126,10 @@ mod ERC2981Component {
             // [Check] Fee is lower or equal to 1
             assert(fee_numerator <= fee_denominator, 'Invalid fee rate');
 
+            // [Assert] Caller is owner
+            // let mut ownable_comp = get_dep_component!(@self, Owner);
+            // ownable_comp.assert_only_owner();
+
             // [Effect] Store values
             self.ERC2981_receiver.write(receiver);
             self.ERC2981_fee_numerator.write(fee_numerator);
@@ -160,10 +165,57 @@ mod ERC2981Component {
             // [Check] Fee is lower or equal to 1
             assert(fee_numerator <= fee_denominator, 'Invalid fee rate');
 
+            // [Assert] Caller is owner
+            // let mut ownable_comp = get_dep_component!(@self, Owner);
+            // ownable_comp.assert_only_owner();
+
             // [Effect] Store values
             self.ERC2981_token_receiver.write(token_id, receiver);
             self.ERC2981_token_fee_numerator.write(token_id, fee_numerator);
             self.ERC2981_token_fee_denominator.write(token_id, fee_denominator);
+        }
+    }
+
+    #[embeddable_as(ERC2981CamelImpl)]
+    impl ERC2981CamelOnly<
+        TContractState,
+        +HasComponent<TContractState>,
+        +SRC5Component::HasComponent<TContractState>,
+        +Drop<TContractState>,
+    > of IERC2981Camel<ComponentState<TContractState>> {
+        fn defaultRoyalty(self: @ComponentState<TContractState>) -> (ContractAddress, u256, u256) {
+            self.default_royalty()
+        }
+
+        fn tokenRoyalty(
+            self: @ComponentState<TContractState>, tokenId: u256
+        ) -> (ContractAddress, u256, u256) {
+            self.token_royalty(tokenId)
+        }
+
+        fn royaltyInfo(
+            self: @ComponentState<TContractState>, tokenId: u256, salePrice: u256
+        ) -> (ContractAddress, u256) {
+            self.royalty_info(tokenId, salePrice)
+        }
+
+        fn setDefaultRoyalty(
+            ref self: ComponentState<TContractState>,
+            receiver: ContractAddress,
+            feeNumerator: u256,
+            feeDenominator: u256
+        ) {
+            self.set_default_royalty(receiver, feeNumerator, feeDenominator)
+        }
+
+        fn setTokenRoyalty(
+            ref self: ComponentState<TContractState>,
+            tokenId: u256,
+            receiver: ContractAddress,
+            feeNumerator: u256,
+            feeDenominator: u256
+        ) {
+            self.set_token_royalty(tokenId, receiver, feeNumerator, feeDenominator)
         }
     }
 
@@ -185,7 +237,7 @@ mod ERC2981Component {
             ref self: ComponentState<TContractState>,
             receiver: ContractAddress,
             fee_numerator: u256,
-            fee_denominator: u256
+            fee_denominator: u256,
         ) {
             // [Effect] Register interfaces
             let mut src5_component = get_dep_component_mut!(ref self, SRC5);
@@ -235,9 +287,10 @@ mod ERC2981Component {
 #[cfg(test)]
 mod Test {
     // starknet deps
-    use cairo_erc_2981::interfaces::erc2981::IERC2981;
+    use starknet::ContractAddress;
+    use cairo_erc_2981::components::erc2981::ERC2981Component::HasComponent;
+    use cairo_erc_2981::interfaces::erc2981::{IERC2981};
     use cairo_erc_2981::components::erc2981::ERC2981Component::InternalTrait;
-    use starknet::{contract_address_const};
 
     // Local deps
     use super::ERC2981Component;
@@ -253,21 +306,20 @@ mod Test {
 
     type ERC2981ComponentState = ERC2981Component::ComponentState<MockERC2981::ContractState>;
 
-
     fn STATE() -> ERC2981ComponentState {
         ERC2981Component::component_state_for_testing()
     }
 
     fn ZERO() -> starknet::ContractAddress {
-        contract_address_const::<0>()
+        starknet::contract_address_const::<0>()
     }
 
     fn RECEIVER() -> starknet::ContractAddress {
-        contract_address_const::<'RECEIVER'>()
+        starknet::contract_address_const::<'RECEIVER'>()
     }
 
     fn NEW_RECEIVER() -> starknet::ContractAddress {
-        contract_address_const::<'NEW_RECEIVER'>()
+        starknet::contract_address_const::<'NEW_RECEIVER'>()
     }
 
     #[test]
@@ -275,6 +327,7 @@ mod Test {
     fn test_initialization() {
         // [Setup]
         let mut state = STATE();
+
         state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
 
         // [Assert] Default royalty
@@ -283,6 +336,7 @@ mod Test {
         assert(fee_numerator == FEE_NUMERATOR, 'Invalid fee numerator');
         assert(fee_denominator == FEE_DENOMINATOR, 'Invalid fee denominator');
     }
+
 
     #[test]
     #[available_gas(105_000)]
@@ -326,7 +380,7 @@ mod Test {
         assert(
             royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR,
             'Invalid royalty
-        amount'
+    amount'
         );
     }
 
@@ -370,7 +424,7 @@ mod Test {
         assert(
             royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR,
             'Invalid royalty
-        amount'
+    amount'
         );
     }
 

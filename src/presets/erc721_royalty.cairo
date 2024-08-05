@@ -5,8 +5,10 @@ mod ERC721Royalty {
 
     // OZ deps
     use openzeppelin::{
-        access::ownable::OwnableComponent, introspection::src5::SRC5Component,
-        token::erc721::{ERC721Component, ERC721HooksEmptyImpl}
+        access::ownable::{
+            OwnableComponent, OwnableComponent::{InternalTrait as OwnableInternalTrait}
+        },
+        introspection::src5::SRC5Component, token::erc721::{ERC721Component, ERC721HooksEmptyImpl}
     };
 
     // Local deps
@@ -30,8 +32,7 @@ mod ERC721Royalty {
     impl ERC721InternalImpl = ERC721Component::InternalImpl<ContractState>;
 
     // ERC2981
-    #[abi(embed_v0)]
-    impl ERC2981Impl = ERC2981Component::ERC2981<ContractState>;
+    impl ERC2981Impl = ERC2981Component::ERC2981Impl<ContractState>;
     impl ERC2981InternalImpl = ERC2981Component::InternalImpl<ContractState>;
 
     #[storage]
@@ -74,38 +75,40 @@ mod ERC721Royalty {
     }
 
     #[abi(embed_v0)]
-    impl ERC2981CamelImpl of IERC2981Camel<ContractState> {
-        fn defaultRoyalty(self: @ContractState) -> (ContractAddress, u256, u256) {
+    impl ERC721RoyaltyImpl of IERC2981<ContractState> {
+        fn default_royalty(self: @ContractState) -> (ContractAddress, u256, u256) {
             self.erc2981.default_royalty()
         }
 
-        fn tokenRoyalty(self: @ContractState, tokenId: u256) -> (ContractAddress, u256, u256) {
-            self.erc2981.token_royalty(tokenId)
+        fn token_royalty(self: @ContractState, token_id: u256) -> (ContractAddress, u256, u256) {
+            self.erc2981.token_royalty(token_id)
         }
 
-        fn royaltyInfo(
-            self: @ContractState, tokenId: u256, salePrice: u256
+        fn royalty_info(
+            self: @ContractState, token_id: u256, sale_price: u256
         ) -> (ContractAddress, u256) {
-            self.erc2981.royalty_info(tokenId, salePrice)
+            self.erc2981.royalty_info(token_id, sale_price)
         }
 
-        fn setDefaultRoyalty(
+        fn set_default_royalty(
             ref self: ContractState,
             receiver: ContractAddress,
-            feeNumerator: u256,
-            feeDenominator: u256
+            fee_numerator: u256,
+            fee_denominator: u256
         ) {
-            self.erc2981.set_default_royalty(receiver, feeNumerator, feeDenominator)
+            self.ownable.assert_only_owner();
+            self.erc2981.set_default_royalty(receiver, fee_numerator, fee_denominator);
         }
 
-        fn setTokenRoyalty(
+        fn set_token_royalty(
             ref self: ContractState,
-            tokenId: u256,
+            token_id: u256,
             receiver: ContractAddress,
-            feeNumerator: u256,
-            feeDenominator: u256
+            fee_numerator: u256,
+            fee_denominator: u256
         ) {
-            self.erc2981.set_token_royalty(tokenId, receiver, feeNumerator, feeDenominator)
+            self.ownable.assert_only_owner();
+            self.erc2981.set_token_royalty(token_id, receiver, fee_numerator, fee_denominator);
         }
     }
 

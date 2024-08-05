@@ -13,9 +13,8 @@ mod presets {
 mod mocks {
     mod erc2981;
 }
-// #[cfg(test)]
-// mod tests {
-//     mod test_erc721_royalty;
-// }
 
-
+#[cfg(test)]
+mod tests {
+    mod test_erc721_royalty;
+}
