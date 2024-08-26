@@ -6,8 +6,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: software-mansion/setup-scarb@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Scarb
+        uses: software-mansion/setup-scarb@v1
         with:
-          scarb-version: "0.7.0"
-      - run: scarb test
+          scarb-version: "2.6.5"
+      
+      - name: Setup snfoundry
+        uses: foundry-rs/setup-snfoundry@v3
+        with:
+          starknet-foundry-version: "0.27.0"
+
+      - name: Run Cairo tests
+        id: cairo_tests
+        run: scarb test
