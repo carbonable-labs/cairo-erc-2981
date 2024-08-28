@@ -28,10 +28,6 @@ mod ERC2981Component {
         ERC2981_token_fee_denominator: LegacyMap<u256, u256>,
     }
 
-    #[event]
-    #[derive(Drop, starknet::Event)]
-    enum Event {}
-
     #[embeddable_as(ERC2981Impl)]
     impl ERC2981<
         TContractState,
