@@ -1,15 +1,22 @@
 //! Component implementing IERC2981.
-
-#[starknet::contract]
-mod ERC2981 {
+#[starknet::component]
+mod ERC2981Component {
     // Starknet deps
-    use starknet::ContractAddress;
+    use starknet::{ContractAddress};
 
-    // External deps
-    use openzeppelin::introspection::src5::SRC5;
+    // OZ deps
+    use openzeppelin::{
+        introspection::{
+            src5::{
+                SRC5Component, SRC5Component::InternalTrait as SRC5InternalTrait,
+                SRC5Component::SRC5Impl
+            },
+            interface::{ISRC5Dispatcher, ISRC5DispatcherTrait}
+        }
+    };
 
     // Local deps
-    use cairo_erc_2981::components::erc2981::interface::{IERC2981, IERC2981_ID};
+    use cairo_erc_2981::interfaces::erc2981::{IERC2981, IERC2981Camel, IERC2981_ID};
 
     #[storage]
     struct Storage {
@@ -21,8 +28,13 @@ mod ERC2981 {
         ERC2981_token_fee_denominator: LegacyMap<u256, u256>,
     }
 
-    #[external(v0)]
-    impl ERC2981Impl of IERC2981<ContractState> {
+    #[embeddable_as(ERC2981Impl)]
+    impl ERC2981<
+        TContractState,
+        +HasComponent<TContractState>,
+        +SRC5Component::HasComponent<TContractState>,
+        +Drop<TContractState>,
+    > of IERC2981<ComponentState<TContractState>> {
         /// Return the default royalty.
         ///
         /// # Returns
@@ -30,7 +42,7 @@ mod ERC2981 {
         /// * `receiver` - The royalty receiver address.
         /// * `fee_numerator` - The royalty rate numerator.
         /// * `fee_denominator` - The royalty rate denominator.
-        fn default_royalty(self: @ContractState) -> (ContractAddress, u256, u256) {
+        fn default_royalty(self: @ComponentState<TContractState>) -> (ContractAddress, u256, u256) {
             (
                 self.ERC2981_receiver.read(),
                 self.ERC2981_fee_numerator.read(),
@@ -49,7 +61,9 @@ mod ERC2981 {
         /// * `receiver` - The royalty receiver address.
         /// * `fee_numerator` - The royalty rate numerator.
         /// * `fee_denominator` - The royalty rate denominator.
-        fn token_royalty(self: @ContractState, token_id: u256) -> (ContractAddress, u256, u256) {
+        fn token_royalty(
+            self: @ComponentState<TContractState>, token_id: u256
+        ) -> (ContractAddress, u256, u256) {
             (
                 self.ERC2981_token_receiver.read(token_id),
                 self.ERC2981_token_fee_numerator.read(token_id),
@@ -72,7 +86,7 @@ mod ERC2981 {
         /// * `receiver` - The royalty receiver address.
         /// * `royalty_amount` - The royalty amount.
         fn royalty_info(
-            self: @ContractState, token_id: u256, sale_price: u256
+            self: @ComponentState<TContractState>, token_id: u256, sale_price: u256
         ) -> (ContractAddress, u256) {
             let receiver = self.ERC2981_token_receiver.read(token_id);
             if !receiver.is_zero() {
@@ -83,7 +97,8 @@ mod ERC2981 {
 
         /// Set the default royalty rate.
         ///
-        /// Since float number can not be handled, the rate is managed by a numerator and a denominator.
+        /// Since float number can not be handled, the rate is managed by a numerator and a
+        /// denominator.
         /// It fails if receiver is the null address.
         /// It fails if fee_denominator == 0 or fee_numerator > fee_denominator.
         ///
@@ -93,7 +108,7 @@ mod ERC2981 {
         /// * `fee_numerator` - The royalty rate numerator.
         /// * `fee_denominator` - The royalty rate denominator.
         fn set_default_royalty(
-            ref self: ContractState,
+            ref self: ComponentState<TContractState>,
             receiver: ContractAddress,
             fee_numerator: u256,
             fee_denominator: u256
@@ -107,6 +122,10 @@ mod ERC2981 {
             // [Check] Fee is lower or equal to 1
             assert(fee_numerator <= fee_denominator, 'Invalid fee rate');
 
+            // [Assert] Caller is owner
+            // let mut ownable_comp = get_dep_component!(@self, Owner);
+            // ownable_comp.assert_only_owner();
+
             // [Effect] Store values
             self.ERC2981_receiver.write(receiver);
             self.ERC2981_fee_numerator.write(fee_numerator);
@@ -115,7 +134,8 @@ mod ERC2981 {
 
         /// Set the token royalty rate.
         ///
-        /// Since float number can not be handled, the rate is managed by a numerator and a denominator.
+        /// Since float number can not be handled, the rate is managed by a numerator and a
+        /// denominator.
         /// It fails if receiver is the null address.
         /// It fails if fee_denominator == 0 or fee_numerator > fee_denominator.
         ///
@@ -126,7 +146,7 @@ mod ERC2981 {
         /// * `fee_numerator` - The royalty rate numerator.
         /// * `fee_denominator` - The royalty rate denominator.
         fn set_token_royalty(
-            ref self: ContractState,
+            ref self: ComponentState<TContractState>,
             token_id: u256,
             receiver: ContractAddress,
             fee_numerator: u256,
@@ -141,6 +161,10 @@ mod ERC2981 {
             // [Check] Fee is lower or equal to 1
             assert(fee_numerator <= fee_denominator, 'Invalid fee rate');
 
+            // [Assert] Caller is owner
+            // let mut ownable_comp = get_dep_component!(@self, Owner);
+            // ownable_comp.assert_only_owner();
+
             // [Effect] Store values
             self.ERC2981_token_receiver.write(token_id, receiver);
             self.ERC2981_token_fee_numerator.write(token_id, fee_numerator);
@@ -148,24 +172,72 @@ mod ERC2981 {
         }
     }
 
+    #[embeddable_as(ERC2981CamelImpl)]
+    impl ERC2981CamelOnly<
+        TContractState,
+        +HasComponent<TContractState>,
+        +SRC5Component::HasComponent<TContractState>,
+        +Drop<TContractState>,
+    > of IERC2981Camel<ComponentState<TContractState>> {
+        fn defaultRoyalty(self: @ComponentState<TContractState>) -> (ContractAddress, u256, u256) {
+            self.default_royalty()
+        }
+
+        fn tokenRoyalty(
+            self: @ComponentState<TContractState>, tokenId: u256
+        ) -> (ContractAddress, u256, u256) {
+            self.token_royalty(tokenId)
+        }
+
+        fn royaltyInfo(
+            self: @ComponentState<TContractState>, tokenId: u256, salePrice: u256
+        ) -> (ContractAddress, u256) {
+            self.royalty_info(tokenId, salePrice)
+        }
+
+        fn setDefaultRoyalty(
+            ref self: ComponentState<TContractState>,
+            receiver: ContractAddress,
+            feeNumerator: u256,
+            feeDenominator: u256
+        ) {
+            self.set_default_royalty(receiver, feeNumerator, feeDenominator)
+        }
+
+        fn setTokenRoyalty(
+            ref self: ComponentState<TContractState>,
+            tokenId: u256,
+            receiver: ContractAddress,
+            feeNumerator: u256,
+            feeDenominator: u256
+        ) {
+            self.set_token_royalty(tokenId, receiver, feeNumerator, feeDenominator)
+        }
+    }
+
     #[generate_trait]
-    impl InternalImpl of InternalTrait {
+    pub impl InternalImpl<
+        TContractState,
+        +HasComponent<TContractState>,
+        impl SRC5: SRC5Component::HasComponent<TContractState>,
+        +Drop<TContractState>
+    > of InternalTrait<TContractState> {
         /// Initialize the component.
         ///
         /// # Arguments
         ///
         /// * `receiver` - The royalty receiver address.
-        /// * `fee_numerator` - The royalty rate numerator.
+        /// * `fee_numerator` - The royalty rate numerator.+
         /// * `fee_denominator` - The royalty rate denominator.
         fn initializer(
-            ref self: ContractState,
+            ref self: ComponentState<TContractState>,
             receiver: ContractAddress,
             fee_numerator: u256,
-            fee_denominator: u256
+            fee_denominator: u256,
         ) {
             // [Effect] Register interfaces
-            let mut unsafe_state = SRC5::unsafe_new_contract_state();
-            SRC5::InternalImpl::register_interface(ref unsafe_state, IERC2981_ID);
+            let mut src5_component = get_dep_component_mut!(ref self, SRC5);
+            src5_component.register_interface(IERC2981_ID);
 
             // [Effect] Update default royalty
             self.set_default_royalty(receiver, fee_numerator, fee_denominator);
@@ -182,7 +254,7 @@ mod ERC2981 {
         /// * `receiver` - The royalty receiver address.
         /// * `royalty_amount` - The royalty amount.
         fn _default_royalty_info(
-            self: @ContractState, sale_price: u256
+            self: @ComponentState<TContractState>, sale_price: u256
         ) -> (ContractAddress, u256) {
             let (receiver, fee_numerator, fee_denominator) = self.default_royalty();
             (receiver, sale_price * fee_numerator / fee_denominator)
@@ -200,7 +272,7 @@ mod ERC2981 {
         /// * `receiver` - The royalty receiver address.
         /// * `royalty_amount` - The royalty amount.
         fn _token_royalty_info(
-            self: @ContractState, token_id: u256, sale_price: u256
+            self: @ComponentState<TContractState>, token_id: u256, sale_price: u256
         ) -> (ContractAddress, u256) {
             let (receiver, fee_numerator, fee_denominator) = self.token_royalty(token_id);
             (receiver, sale_price * fee_numerator / fee_denominator)
@@ -210,11 +282,17 @@ mod ERC2981 {
 
 #[cfg(test)]
 mod Test {
+    // starknet deps
+    use starknet::ContractAddress;
+    use cairo_erc_2981::components::erc2981::ERC2981Component::HasComponent;
+    use cairo_erc_2981::interfaces::erc2981::{IERC2981};
+    use cairo_erc_2981::components::erc2981::ERC2981Component::InternalTrait;
+
     // Local deps
-    use super::ERC2981;
+    use super::ERC2981Component;
+    use cairo_erc_2981::mocks::erc2981::MockERC2981;
 
     // Constants
-
     const FEE_NUMERATOR: u256 = 1;
     const FEE_DENOMINATOR: u256 = 100;
     const NEW_FEE_NUMERATOR: u256 = 2;
@@ -222,8 +300,10 @@ mod Test {
     const TOKEN_ID: u256 = 1;
     const SALE_PRICE: u256 = 1000000;
 
-    fn STATE() -> ERC2981::ContractState {
-        ERC2981::contract_state_for_testing()
+    type ERC2981ComponentState = ERC2981Component::ComponentState<MockERC2981::ContractState>;
+
+    fn STATE() -> ERC2981ComponentState {
+        ERC2981Component::component_state_for_testing()
     }
 
     fn ZERO() -> starknet::ContractAddress {
@@ -243,15 +323,16 @@ mod Test {
     fn test_initialization() {
         // [Setup]
         let mut state = STATE();
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+
         // [Assert] Default royalty
-        let (receiver, fee_numerator, fee_denominator) = ERC2981::ERC2981Impl::default_royalty(
-            @state
-        );
+        let (receiver, fee_numerator, fee_denominator) = state.default_royalty();
         assert(receiver == RECEIVER(), 'Invalid receiver');
         assert(fee_numerator == FEE_NUMERATOR, 'Invalid fee numerator');
         assert(fee_denominator == FEE_DENOMINATOR, 'Invalid fee denominator');
     }
+
 
     #[test]
     #[available_gas(105_000)]
@@ -260,7 +341,7 @@ mod Test {
         // [Setup]
         let mut state = STATE();
         // [Revert] Initialization
-        ERC2981::InternalImpl::initializer(ref state, ZERO(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        state.initializer(ZERO(), FEE_NUMERATOR, FEE_DENOMINATOR);
     }
 
     #[test]
@@ -270,7 +351,7 @@ mod Test {
         // [Setup]
         let mut state = STATE();
         // [Revert] Initialization
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, 0);
+        state.initializer(RECEIVER(), FEE_NUMERATOR, 0);
     }
 
     #[test]
@@ -280,7 +361,7 @@ mod Test {
         // [Setup]
         let mut state = STATE();
         // [Revert] Initialization
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_DENOMINATOR, FEE_NUMERATOR);
+        state.initializer(RECEIVER(), FEE_DENOMINATOR, FEE_NUMERATOR);
     }
 
     #[test]
@@ -288,14 +369,14 @@ mod Test {
     fn test_default_royalty() {
         // [Setup]
         let mut state = STATE();
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
         // [Assert] Default royalty info
-        let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(
-            @state, TOKEN_ID, SALE_PRICE
-        );
+        let (receiver, royalty_amount) = state.royalty_info(TOKEN_ID, SALE_PRICE);
         assert(receiver == RECEIVER(), 'Invalid receiver');
         assert(
-            royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR, 'Invalid royalty amount'
+            royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR,
+            'Invalid royalty
+    amount'
         );
     }
 
@@ -304,15 +385,11 @@ mod Test {
     fn test_set_default_royalty() {
         // [Setup]
         let mut state = STATE();
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
         // [Effect] Set default royalty
-        ERC2981::ERC2981Impl::set_default_royalty(
-            ref state, NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
-        );
+        state.set_default_royalty(NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
         // [Assert] Default royalty info
-        let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(
-            @state, TOKEN_ID, SALE_PRICE
-        );
+        let (receiver, royalty_amount) = state.royalty_info(TOKEN_ID, SALE_PRICE);
         assert(receiver == NEW_RECEIVER(), 'Invalid receiver');
         assert(
             royalty_amount == SALE_PRICE * NEW_FEE_NUMERATOR / NEW_FEE_DENOMINATOR,
@@ -325,16 +402,12 @@ mod Test {
     fn test_set_token_royalty() {
         // [Setup]
         let mut state = STATE();
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
         // [Effect] Set token royalty
-        ERC2981::ERC2981Impl::set_token_royalty(
-            ref state, TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
-        );
+        state.set_token_royalty(TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
 
         // [Assert] Token royalty info
-        let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(
-            @state, TOKEN_ID, SALE_PRICE
-        );
+        let (receiver, royalty_amount) = state.royalty_info(TOKEN_ID, SALE_PRICE);
         assert(receiver == NEW_RECEIVER(), 'Invalid receiver');
         assert(
             royalty_amount == SALE_PRICE * NEW_FEE_NUMERATOR / NEW_FEE_DENOMINATOR,
@@ -342,10 +415,12 @@ mod Test {
         );
 
         // [Assert] Default royalty info
-        let (receiver, royalty_amount) = ERC2981::ERC2981Impl::royalty_info(@state, 0, SALE_PRICE);
+        let (receiver, royalty_amount) = state.royalty_info(0, SALE_PRICE);
         assert(receiver == RECEIVER(), 'Invalid receiver');
         assert(
-            royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR, 'Invalid royalty amount'
+            royalty_amount == SALE_PRICE * FEE_NUMERATOR / FEE_DENOMINATOR,
+            'Invalid royalty
+    amount'
         );
     }
 
@@ -355,11 +430,9 @@ mod Test {
     fn test_set_token_royalty_revert_invalid_receiver() {
         // [Setup]
         let mut state = STATE();
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
         // [Revert] Set token royalty
-        ERC2981::ERC2981Impl::set_token_royalty(
-            ref state, TOKEN_ID, ZERO(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
-        );
+        state.set_token_royalty(TOKEN_ID, ZERO(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
     }
 
     #[test]
@@ -368,11 +441,9 @@ mod Test {
     fn test_set_token_royalty_revert_invalid_fee_denominator() {
         // [Setup]
         let mut state = STATE();
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
         // [Revert] Set token royalty
-        ERC2981::ERC2981Impl::set_token_royalty(
-            ref state, TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, 0
-        );
+        state.set_token_royalty(TOKEN_ID, NEW_RECEIVER(), NEW_FEE_NUMERATOR, 0);
     }
 
     #[test]
@@ -381,10 +452,9 @@ mod Test {
     fn test_set_token_royalty_revert_invalid_fee_rate() {
         // [Setup]
         let mut state = STATE();
-        ERC2981::InternalImpl::initializer(ref state, RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
+        state.initializer(RECEIVER(), FEE_NUMERATOR, FEE_DENOMINATOR);
         // [Revert] Set token royalty
-        ERC2981::ERC2981Impl::set_token_royalty(
-            ref state, TOKEN_ID, NEW_RECEIVER(), NEW_FEE_DENOMINATOR, NEW_FEE_NUMERATOR
-        );
+        state.set_token_royalty(TOKEN_ID, NEW_RECEIVER(), NEW_FEE_DENOMINATOR, NEW_FEE_NUMERATOR);
     }
 }
+

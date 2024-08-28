@@ -1,29 +1,26 @@
 #[cfg(test)]
 mod Test {
-    // Starknet deps
+    // Core deps
+    use core::serde::Serde;
 
-    use starknet::ContractAddress;
-    use starknet::deploy_syscall;
-    use starknet::testing::set_contract_address;
-
-    // External deps
-
-    use openzeppelin::account::account::Account;
-
-    // Dispatchers
-
-    use cairo_erc_2981::components::erc2981::interface::{
-        IERC2981Dispatcher, IERC2981DispatcherTrait
+    // Starknet-Foundry deps
+    use snforge_std::{
+        declare, ContractClassTrait, start_cheat_caller_address, stop_cheat_caller_address
     };
 
-    // Contracts
+    // Starknet deps
+    use starknet::{ContractAddress, deploy_syscall};
 
+    // Dispatchers
+    use cairo_erc_2981::interfaces::erc2981::{IERC2981Dispatcher, IERC2981DispatcherTrait};
+
+    // Contracts
     use cairo_erc_2981::presets::erc721_royalty::ERC721Royalty;
 
     // Constants
-
-    const NAME: felt252 = 'NAME';
-    const SYMBOL: felt252 = 'SYMBOL';
+    const RECEIVER: felt252 = 'RECEIVER';
+    const NEW_RECEIVER: felt252 = 'NEW_RECEIVER';
+    const OWNER: felt252 = 'OWNER';
     const TOKEN_ID: u256 = 1;
     const FEE_NUMERATOR: u256 = 5;
     const FEE_DENOMINATOR: u256 = 100;
@@ -31,74 +28,41 @@ mod Test {
     const NEW_FEE_DENOMINATOR: u256 = 50;
 
     // Setup
+    fn setup(receiver: ContractAddress, owner: ContractAddress) -> ContractAddress {
+        let name: ByteArray = "NAME";
+        let symbol: ByteArray = "SYMBOL";
+        let base_uri: ByteArray = "ipfs://abcdefghi/";
 
-    #[derive(Drop)]
-    struct Signers {
-        owner: ContractAddress,
-        receiver: ContractAddress,
-        new_receiver: ContractAddress,
-    }
+        let mut calldata: Array<felt252> = array![];
+        name.serialize(ref calldata);
+        symbol.serialize(ref calldata);
+        base_uri.serialize(ref calldata);
+        receiver.serialize(ref calldata);
+        FEE_NUMERATOR.low.serialize(ref calldata);
+        FEE_NUMERATOR.high.serialize(ref calldata);
+        FEE_DENOMINATOR.low.serialize(ref calldata);
+        FEE_DENOMINATOR.high.serialize(ref calldata);
+        owner.serialize(ref calldata);
 
-    #[derive(Drop)]
-    struct Contracts {
-        preset: ContractAddress,
-    }
+        let contract = declare("ERC721Royalty").unwrap();
+        let (contract_address, _) = contract.deploy(@calldata).unwrap();
 
-    fn deploy_account(public_key: felt252) -> ContractAddress {
-        let mut calldata = array![public_key];
-        let (address, _) = deploy_syscall(
-            Account::TEST_CLASS_HASH.try_into().expect('Account declare failed'),
-            0,
-            calldata.span(),
-            false
-        )
-            .expect('Account deploy failed');
-        address
-    }
-
-    fn deploy_preset(receiver: ContractAddress, owner: ContractAddress) -> ContractAddress {
-        let mut calldata = array![
-            NAME,
-            SYMBOL,
-            receiver.into(),
-            FEE_NUMERATOR.low.into(),
-            FEE_NUMERATOR.high.into(),
-            FEE_DENOMINATOR.low.into(),
-            FEE_DENOMINATOR.high.into(),
-            owner.into()
-        ];
-        let (address, _) = deploy_syscall(
-            ERC721Royalty::TEST_CLASS_HASH.try_into().expect('Preset declare failed'),
-            0,
-            calldata.span(),
-            false
-        )
-            .expect('Preset deploy failed');
-        address
-    }
-
-    fn setup() -> (Signers, Contracts) {
-        let signers = Signers {
-            owner: deploy_account('OWNER'),
-            receiver: deploy_account('RECEIVER'),
-            new_receiver: deploy_account('TOKEN_RECEIVER')
-        };
-        let preset_address = deploy_preset(signers.receiver, signers.owner);
-        (signers, Contracts { preset: preset_address })
+        contract_address
     }
 
     // Tests
-
     #[test]
     #[available_gas(1_250_000)]
     fn test_initialization() {
         // [Setup]
-        let (signers, contracts) = setup();
-        let erc2981 = IERC2981Dispatcher { contract_address: contracts.preset };
+        let preset_contract_address = setup(
+            RECEIVER.try_into().unwrap(), OWNER.try_into().unwrap()
+        );
+        let preset = IERC2981Dispatcher { contract_address: preset_contract_address };
 
         // [Assert] Provide minter rights to anyone
-        let (receiver, fee_numerator, fee_denominator) = erc2981.default_royalty();
-        assert(receiver == signers.receiver, 'Invalid receiver');
+        let (receiver, fee_numerator, fee_denominator) = preset.default_royalty();
+        assert(receiver == RECEIVER.try_into().unwrap(), 'Invalid receiver');
         assert(fee_numerator == FEE_NUMERATOR.into(), 'Invalid fee numerator');
         assert(fee_denominator == FEE_DENOMINATOR.into(), 'Invalid fee denominator');
     }
@@ -107,16 +71,22 @@ mod Test {
     #[available_gas(1_600_000)]
     fn test_set_default_royalty() {
         // [Setup]
-        let (signers, contracts) = setup();
-        let erc2981 = IERC2981Dispatcher { contract_address: contracts.preset };
+        let preset_contract_address = setup(
+            RECEIVER.try_into().unwrap(), OWNER.try_into().unwrap()
+        );
+        let preset = IERC2981Dispatcher { contract_address: preset_contract_address };
 
         // [Effect] Set default royalty
-        set_contract_address(signers.owner);
-        erc2981.set_default_royalty(signers.new_receiver, NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
+        start_cheat_caller_address(preset_contract_address, OWNER.try_into().unwrap());
+        preset
+            .set_default_royalty(
+                NEW_RECEIVER.try_into().unwrap(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
+            );
+        stop_cheat_caller_address(preset_contract_address);
 
         // [Assert] Default royalty
-        let (receiver, fee_numerator, fee_denominator) = erc2981.default_royalty();
-        assert(receiver == signers.new_receiver, 'Invalid receiver');
+        let (receiver, fee_numerator, fee_denominator) = preset.default_royalty();
+        assert(receiver == NEW_RECEIVER.try_into().unwrap(), 'Invalid receiver');
         assert(fee_numerator == NEW_FEE_NUMERATOR.into(), 'Invalid fee numerator');
         assert(fee_denominator == NEW_FEE_DENOMINATOR.into(), 'Invalid fee denominator');
     }
@@ -126,31 +96,40 @@ mod Test {
     #[should_panic]
     fn test_set_default_royalty_revert_not_owner() {
         // [Setup]
-        let (signers, contracts) = setup();
-        let erc2981 = IERC2981Dispatcher { contract_address: contracts.preset };
+        let preset_contract_address = setup(
+            RECEIVER.try_into().unwrap(), OWNER.try_into().unwrap()
+        );
+        let preset = IERC2981Dispatcher { contract_address: preset_contract_address };
 
         // [Revert] Set default royalty
-        set_contract_address(signers.new_receiver);
-        erc2981.set_default_royalty(signers.new_receiver, NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR);
+        start_cheat_caller_address(preset_contract_address, NEW_RECEIVER.try_into().unwrap());
+        preset
+            .set_default_royalty(
+                NEW_RECEIVER.try_into().unwrap(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
+            );
+        stop_cheat_caller_address(preset_contract_address);
     }
 
     #[test]
     #[available_gas(1_600_000)]
     fn test_set_token_royalty() {
         // [Setup]
-        let (signers, contracts) = setup();
-        let erc2981 = IERC2981Dispatcher { contract_address: contracts.preset };
+        let preset_contract_address = setup(
+            RECEIVER.try_into().unwrap(), OWNER.try_into().unwrap()
+        );
+        let preset = IERC2981Dispatcher { contract_address: preset_contract_address };
 
         // [Effect] Set default royalty
-        set_contract_address(signers.owner);
-        erc2981
+        start_cheat_caller_address(preset_contract_address, OWNER.try_into().unwrap());
+        preset
             .set_token_royalty(
-                TOKEN_ID, signers.new_receiver, NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
+                TOKEN_ID, NEW_RECEIVER.try_into().unwrap(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
             );
+        stop_cheat_caller_address(preset_contract_address);
 
         // [Assert] Token royalty
-        let (receiver, fee_numerator, fee_denominator) = erc2981.token_royalty(TOKEN_ID);
-        assert(receiver == signers.new_receiver, 'Invalid receiver');
+        let (receiver, fee_numerator, fee_denominator) = preset.token_royalty(TOKEN_ID);
+        assert(receiver == NEW_RECEIVER.try_into().unwrap(), 'Invalid receiver');
         assert(fee_numerator == NEW_FEE_NUMERATOR.into(), 'Invalid fee numerator');
         assert(fee_denominator == NEW_FEE_DENOMINATOR.into(), 'Invalid fee denominator');
     }
@@ -160,14 +139,17 @@ mod Test {
     #[should_panic]
     fn test_set_token_royalty_revert_not_owner() {
         // [Setup]
-        let (signers, contracts) = setup();
-        let erc2981 = IERC2981Dispatcher { contract_address: contracts.preset };
+        let preset_contract_address = setup(
+            RECEIVER.try_into().unwrap(), OWNER.try_into().unwrap()
+        );
+        let preset = IERC2981Dispatcher { contract_address: preset_contract_address };
 
         // [Revert] Set default royalty
-        set_contract_address(signers.new_receiver);
-        erc2981
+        start_cheat_caller_address(preset_contract_address, NEW_RECEIVER.try_into().unwrap());
+        preset
             .set_token_royalty(
-                TOKEN_ID, signers.new_receiver, NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
+                TOKEN_ID, NEW_RECEIVER.try_into().unwrap(), NEW_FEE_NUMERATOR, NEW_FEE_DENOMINATOR
             );
+        stop_cheat_caller_address(preset_contract_address);
     }
 }
